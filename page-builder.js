@@ -72,20 +72,57 @@ class PageBuilder {
       title = 'Analysis Report',
       subtitle = '',
       includeDefaultStyles = true,
-      containerClass = 'report-container'
+      containerClass = 'report-container',
+      targetContainer = null  // Allow specifying an existing container
     } = config;
 
-    // Clear existing content
-    document.body.innerHTML = '';
+    // Auto-detect common container patterns if no target specified
+    let container = null;
+    if (targetContainer) {
+      container = typeof targetContainer === 'string' ? 
+                 document.querySelector(targetContainer) : 
+                 targetContainer;
+    } else {
+      // Auto-detect existing containers with common patterns
+      const candidates = [
+        '#report',
+        '#report-container', 
+        '.report-container',
+        '#main',
+        '#content'
+      ];
+      
+      for (const selector of candidates) {
+        const element = document.querySelector(selector);
+        if (element) {
+          container = element;
+          console.log(`PageBuilder: Auto-detected existing container: ${selector}`);
+          break;
+        }
+      }
+    }
+    
+    if (container) {
+      // Use existing container - clear its content but preserve the container
+      container.innerHTML = '';
+      // Ensure it has the right class for styling
+      if (!container.classList.contains('report-container')) {
+        container.classList.add('report-container');
+      }
+    } else {
+      // No existing container found - create new one and clear body
+      document.body.innerHTML = '';
+      container = document.createElement('div');
+      container.className = containerClass;
+      document.body.appendChild(container);
+    }
 
     // Add default styles if requested
     if (includeDefaultStyles) {
       this.addDefaultStyles();
     }
 
-    // Create main container
-    const container = document.createElement('div');
-    container.className = containerClass;
+    // Create report structure inside the container
     container.innerHTML = `
       <header class="report-header">
         <h1 class="report-title">${title}</h1>
@@ -94,7 +131,6 @@ class PageBuilder {
       <main class="report-content"></main>
     `;
 
-    document.body.appendChild(container);
     this.currentDocument = container;
     return container;
   }
@@ -249,6 +285,7 @@ class PageBuilder {
   createSection(config = {}) {
     const {
       title = `Section ${++this.sectionCounter}`,
+      id = `${++this.sectionCounter}`,
       subtitle = '',
       className = 'section',
       containerId = `section-${this.sectionCounter}`
@@ -282,8 +319,16 @@ class PageBuilder {
       parentSelector = '.report-content'
     } = config;
 
-    const parent = this.currentDocument.querySelector(parentSelector) || 
-                  this.currentDocument.querySelector('.report-content');
+    // If parentSelector is specific (starts with #), use it directly
+    // Otherwise fall back to generic selectors
+    let parent = null;
+    if (parentSelector.startsWith('#') || parentSelector.includes('#')) {
+      parent = this.currentDocument.querySelector(parentSelector);
+    }
+    
+    if (!parent) {
+      parent = this.currentDocument.querySelector('.report-content');
+    }
 
     const container = document.createElement('div');
     container.id = containerId;
@@ -323,8 +368,18 @@ class PageBuilder {
    * Add key finding box
    */
   addKeyFinding(content, parentSelector = '.section-content') {
-    const parent = this.currentDocument.querySelector(parentSelector) || 
-                  this.currentDocument.querySelector('.report-content');
+    // If parentSelector is specific (starts with #), use it directly
+    // Otherwise fall back to generic selectors
+    let parent = null;
+    if (parentSelector.startsWith('#') || parentSelector.includes('#')) {
+      parent = this.currentDocument.querySelector(parentSelector);
+    }
+    
+    if (!parent) {
+      parent = this.currentDocument.querySelector('.section-content') || 
+               this.currentDocument.querySelector('.report-content');
+    }
+    
     const finding = document.createElement('div');
     finding.className = 'key-finding';
     finding.innerHTML = `<div class="text-content">${content}</div>`;
@@ -336,8 +391,18 @@ class PageBuilder {
    * Add recommendation box
    */
   addRecommendation(content, priority = '', parentSelector = '.section-content') {
-    const parent = this.currentDocument.querySelector(parentSelector) || 
-                  this.currentDocument.querySelector('.report-content');
+    // If parentSelector is specific (starts with #), use it directly
+    // Otherwise fall back to generic selectors
+    let parent = null;
+    if (parentSelector.startsWith('#') || parentSelector.includes('#')) {
+      parent = this.currentDocument.querySelector(parentSelector);
+    }
+    
+    if (!parent) {
+      parent = this.currentDocument.querySelector('.section-content') || 
+               this.currentDocument.querySelector('.report-content');
+    }
+    
     const recommendation = document.createElement('div');
     recommendation.className = 'recommendation';
     
@@ -351,8 +416,18 @@ class PageBuilder {
    * Add regular text content
    */
   addTextContent(content, parentSelector = '.section-content') {
-    const parent = this.currentDocument.querySelector(parentSelector) || 
-                  this.currentDocument.querySelector('.report-content');
+    // If parentSelector is specific (starts with #), use it directly
+    // Otherwise fall back to generic selectors
+    let parent = null;
+    if (parentSelector.startsWith('#') || parentSelector.includes('#')) {
+      parent = this.currentDocument.querySelector(parentSelector);
+    }
+    
+    if (!parent) {
+      parent = this.currentDocument.querySelector('.section-content') || 
+               this.currentDocument.querySelector('.report-content');
+    }
+    
     const textDiv = document.createElement('div');
     textDiv.className = 'text-content';
     textDiv.innerHTML = content;
@@ -364,8 +439,18 @@ class PageBuilder {
    * Create a two-column grid layout
    */
   createContentGrid(parentSelector = '.section-content') {
-    const parent = this.currentDocument.querySelector(parentSelector) || 
-                  this.currentDocument.querySelector('.report-content');
+    // If parentSelector is specific (starts with #), use it directly
+    // Otherwise fall back to generic selectors
+    let parent = null;
+    if (parentSelector.startsWith('#') || parentSelector.includes('#')) {
+      parent = this.currentDocument.querySelector(parentSelector);
+    }
+    
+    if (!parent) {
+      parent = this.currentDocument.querySelector('.section-content') || 
+               this.currentDocument.querySelector('.report-content');
+    }
+    
     const grid = document.createElement('div');
     grid.className = 'content-grid';
     parent.appendChild(grid);
@@ -706,7 +791,7 @@ class PageBuilder {
 /**
  * High-level function to create a complete demographics report
  */
-PageBuilder.prototype.buildDemographicsReport = async function(reportData) {
+PageBuilder.prototype.buildDemographicsReport = async function(reportData, targetContainer = null) {
   const {
     title = 'Member Demographics Analysis',
     subtitle = 'Comprehensive demographic insights and recommendations',
@@ -716,7 +801,7 @@ PageBuilder.prototype.buildDemographicsReport = async function(reportData) {
 
   // Initialize and create document structure
   await this.ensureInitialized();
-  this.createDocument({ title, subtitle });
+  this.createDocument({ title, subtitle, targetContainer });
 
   // Add executive summary if provided
   if (executiveSummary) {
@@ -767,15 +852,17 @@ PageBuilder.prototype.buildDemographicsReport = async function(reportData) {
     // Add text content
     if (sectionData.content) {
       sectionData.content.forEach(content => {
+        const targetSelector = `#${section.id} .section-content`;
+        
         switch (content.type) {
           case 'finding':
-            this.addKeyFinding(content.text, `#${section.id} .section-content`);
+            this.addKeyFinding(content.text, targetSelector);
             break;
           case 'recommendation':
-            this.addRecommendation(content.text, content.priority, `#${section.id} .section-content`);
+            this.addRecommendation(content.text, content.priority, targetSelector);
             break;
           default:
-            this.addTextContent(content.text, `#${section.id} .section-content`);
+            this.addTextContent(content.text, targetSelector);
         }
       });
     }
